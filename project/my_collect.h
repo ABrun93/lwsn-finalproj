@@ -16,11 +16,14 @@ struct my_collect_callbacks {
 struct my_collect_conn {
   struct broadcast_conn bc;
   struct unicast_conn uc;
+  struct unicast_conn rpt;
   const struct my_collect_callbacks* callbacks;
   linkaddr_t parent;
   struct ctimer beacon_timer;
+  struct ctimer report_timer;
   uint16_t metric;
   uint16_t beacon_seqn;
+  uint16_t report_seqn;
 };
 
 

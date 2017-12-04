@@ -9,17 +9,29 @@
 #include "my_collect.h"
 
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
+#define REPORT_INTERVAL (CLOCK_SECOND*60*2)
 #define BEACON_FORWARD_DELAY (random_rand() % CLOCK_SECOND)
-
+#define REPORT_FORWARD_DELAY (random_rand() % CLOCK_SECOND)
 #define RSSI_THRESHOLD -95
 
-/* Forward declarations */
+/* 
+ * Forward declarations 
+ */
+// Many-to-one
 void bc_recv(struct broadcast_conn *conn, const linkaddr_t *sender);
 void uc_recv(struct unicast_conn *c, const linkaddr_t *from);
 void beacon_timer_cb(void* ptr);
 /* Callback structures */
 struct broadcast_callbacks bc_cb = {.recv=bc_recv};
 struct unicast_callbacks uc_cb = {.recv=uc_recv};
+
+// One-to-many
+void sr_send(struct unicast_conn *c, const linkaddr_t *dest);
+void sr_recv(struct unicast_conn *c, const linkaddr_t *from);
+void rpt_recv(struct unicast_conn *c, const linkaddr_t *sender);
+void report_timer_cb(void* ptr); 
+//Callback structures
+struct unicast_callbacks rpt_cb = {.recv=rpt_recv};
 
 /*--------------------------------------------------------------------------------------*/
 void my_collect_open(struct my_collect_conn* conn, uint16_t channels, 
@@ -34,6 +46,7 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
   // open the underlying primitives
   broadcast_open(&conn->bc, channels,     &bc_cb);
   unicast_open  (&conn->uc, channels + 1, &uc_cb);
+  unicast_open  (&conn->rpt, channels + 2, &rpt_cb);
 
   // TODO 1: make the sink send beacons periodically
   if(is_sink)
@@ -118,8 +131,74 @@ void bc_recv(struct broadcast_conn *bc_conn, const linkaddr_t *sender) {
     // Send beacon
     ctimer_set(&conn->beacon_timer, BEACON_FORWARD_DELAY, beacon_timer_cb, conn);
     // send_beacon(conn);
+
+    // Send report
+    send_report(conn);
   }
 }
+
+
+/* Handling topology reports ----------------------------------------------------------*/
+
+struct report_msg { // Report message structure
+  uint16_t seqn;
+  linkaddr_t source;
+  linkaddr_t parent;
+} __attribute__((packed));
+
+// Send report using the current seqn, source and parent 
+void send_report(struct my_collect_conn* conn) {
+  struct report_msg rpt = {.seqn = conn->report_seqn, .source=linkaddr_node_addr, .parent=conn->parent};
+  
+  if (linkaddr_cmp(&conn->parent, &linkaddr_null))
+    return 0; // no parent
+
+  printf("my_collect-report: sending unicast: %02x:%02x\n", conn->parent.u8[0], conn->parent.u8[0]);
+  packetbuf_clear();
+  packetbuf_copyfrom(&rpt, sizeof(rpt));
+  unicast_send(&conn->rpt, &conn->parent);
+}
+
+// Report timer callback
+void report_timer_cb(void* ptr) {
+  struct my_collect_conn* conn = (struct my_collect_conn*) ptr;
+
+  send_report(conn);
+  
+  ctimer_set(&conn->report_timer, REPORT_INTERVAL, report_timer_cb, conn);
+}
+
+// Report receive callback
+void rpt_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
+  struct report_msg rpt;
+
+  // Get the pointer to the overall structure my_collect_conn from its field bc
+  struct my_collect_conn* conn = (struct my_collect_conn*)(((uint8_t*)uc_conn) - 
+    offsetof(struct my_collect_conn, rpt));
+
+  if (packetbuf_datalen() != sizeof(struct report_msg)) {
+    printf("my_collect: unicast of wrong size\n");
+    return;
+  }
+  memcpy(&rpt, packetbuf_dataptr(), sizeof(struct report_msg));
+  printf("my_collect: recv report from %02x:%02x", 
+      sender->u8[0], sender->u8[1]);
+ 
+  // Send report
+  if(linkaddr_cmp(&conn->parent, &linkaddr_node_addr))
+  {
+    printf("rep_recv: sink\n");
+    // TODO Build source routing table   
+  }
+  else
+  {
+    printf("rep_recv: sending unicast: %02x:%02x\n", conn->parent.u8[0], conn->parent.u8[0]);
+    packetbuf_clear();
+    packetbuf_copyfrom(&rpt, sizeof(rpt));
+    unicast_send(&conn->rpt, &conn->parent);
+  }
+}
+
 
 /* Handling data packets --------------------------------------------------------------*/
 
