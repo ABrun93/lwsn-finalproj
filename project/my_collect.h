@@ -17,6 +17,7 @@ struct my_collect_conn {
   struct broadcast_conn bc;
   struct unicast_conn uc;
   struct unicast_conn rpt;
+  struct unicast_conn fwd;
   const struct my_collect_callbacks* callbacks;
   linkaddr_t parent;
   linkaddr_t** routing_table;

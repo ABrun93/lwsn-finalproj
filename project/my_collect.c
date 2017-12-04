@@ -27,6 +27,8 @@ struct unicast_callbacks uc_cb = {.recv=uc_recv};
 // One-to-many
 void sr_send(struct unicast_conn *c, const linkaddr_t *dest);
 void sr_recv(struct unicast_conn *c, const linkaddr_t *from);
+//Callback structures
+struct unicast_callbacks fwd_cb = {.recv=sr_recv, .sent=sr_send};
 
 // Report
 void rpt_recv(struct unicast_conn *c, const linkaddr_t *sender);
@@ -41,9 +43,6 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
                      bool is_sink, const struct my_collect_callbacks *callbacks)
 {
   int i;
-  linkaddr_t temp;
-  temp.u8[0] = 0x00;
-  temp.u8[0] = 0x00;
   // initialise the connector structure
   linkaddr_copy(&conn->parent, &linkaddr_null);
   conn->metric = 65535; // the max metric (means that the node is not connected yet)
@@ -54,6 +53,7 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
   broadcast_open(&conn->bc, channels,     &bc_cb);
   unicast_open  (&conn->uc, channels + 1, &uc_cb);
   unicast_open  (&conn->rpt, channels + 2, &rpt_cb);
+  unicast_open  (&conn->fwd, channels + 3, &fwd_cb);
 
   // TODO 1: make the sink send beacons periodically
   if(is_sink)
@@ -66,8 +66,8 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
     {
       conn->routing_table[i] = malloc(2 * sizeof(int));
       // Set every entry to zero
-      conn->routing_table[i][0] = temp;
-      conn->routing_table[i][1] = temp;
+      linkaddr_copy(&conn->routing_table[i][0], &linkaddr_null);
+      linkaddr_copy(&conn->routing_table[i][1], &linkaddr_null);
     }
     // Set the beacon timer
     ctimer_set(&conn->beacon_timer, BEACON_INTERVAL, beacon_timer_cb, conn);
@@ -218,7 +218,7 @@ void rpt_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
       }
       else
       {
-        if(conn->routing_table[i][0].u8[0] == 0x00 && conn->routing_table[i][0].u8[1] == 0x00)
+        if(linkaddr_cmp(&conn->routing_table[i][0], &linkaddr_null))
         {
           linkaddr_copy(&conn->routing_table[i][0], &rpt.source);
           linkaddr_copy(&conn->routing_table[i][1], &rpt.parent);
@@ -247,12 +247,18 @@ void rpt_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
 
 void sr_send(struct unicast_conn *c, const linkaddr_t *dest)
 {
+  if(linkaddr_cmp(dest, &linkaddr_null)) {
+    return;
+  }
 
+  printf("my_collect-sr_send: sending unicast %02x:%02x", dest->u8[0], dest->u8[1]);
+
+  // TODO Source Routin 
 }
 
 void sr_recv(struct unicast_conn *c, const linkaddr_t *from)
 {
-
+  // TODO Forward
 }
 
 
