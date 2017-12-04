@@ -1,0 +1,14 @@
+[15:24:19 - AWT-EventQueue-0] [Cooja.java:2856] [INFO] - External tools default settings: /external_tools_linux_64.config
+[15:24:19 - AWT-EventQueue-0] [Cooja.java:2886] [INFO] - External tools user settings: /home/c-3po/.cooja.user.properties
+[15:24:29 - AWT-EventQueue-0] [Simulation.java:422] [INFO] - Simulation random seed: 123456
+[15:24:29 - AWT-EventQueue-0] [Visualizer.java:256] [INFO] - Registered external visualizer: org.contikios.cooja.plugins.skins.DGRMVisualizerSkin
+[15:24:47 - AWT-EventQueue-0] [Cooja.java:4140] [WARN] - Path is not portable: '/home/c-3po/Documenti/Wireless Sensors Network/Final Project/project/app.sky
+[15:24:53 - AWT-EventQueue-0] [MspMote.java:235] [INFO] - Loading firmware from: /home/c-3po/Documenti/Wireless Sensors Network/Final Project/project/app.sky
+[15:24:53 - AWT-EventQueue-0] [MspMote.java:235] [INFO] - Loading firmware from: /home/c-3po/Documenti/Wireless Sensors Network/Final Project/project/app.sky
+[15:24:54 - AWT-EventQueue-0] [MspMote.java:235] [INFO] - Loading firmware from: /home/c-3po/Documenti/Wireless Sensors Network/Final Project/project/app.sky
+[15:24:54 - AWT-EventQueue-0] [MspMote.java:235] [INFO] - Loading firmware from: /home/c-3po/Documenti/Wireless Sensors Network/Final Project/project/app.sky
+[15:24:54 - AWT-EventQueue-0] [MspMote.java:235] [INFO] - Loading firmware from: /home/c-3po/Documenti/Wireless Sensors Network/Final Project/project/app.sky
+[15:25:06 - Thread-1] [Simulation.java:253] [INFO] - Simulation main loop started, system time: 1512397506423
+[15:25:14 - Thread-1] [Simulation.java:312] [INFO] - Simulation main loop stopped, system time: 1512397514741	Duration: 8318 ms	Simulated time 122305 ms	Ratio 14.703654724693436
+[15:26:58 - Thread-2] [Simulation.java:253] [INFO] - Simulation main loop started, system time: 1512397618348
+[15:27:09 - Thread-2] [Simulation.java:312] [INFO] - Simulation main loop stopped, system time: 1512397629057	Duration: 10709 ms	Simulated time 302719 ms	Ratio 28.26771874124568
