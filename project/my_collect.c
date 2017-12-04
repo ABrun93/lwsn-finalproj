@@ -8,15 +8,14 @@
 #include "core/net/linkaddr.h"
 #include "my_collect.h"
 
+#define NUMBER_NODES 5
 #define BEACON_INTERVAL (CLOCK_SECOND*60)
 #define REPORT_INTERVAL (CLOCK_SECOND*60*2)
 #define BEACON_FORWARD_DELAY (random_rand() % CLOCK_SECOND)
 #define REPORT_FORWARD_DELAY (random_rand() % CLOCK_SECOND)
 #define RSSI_THRESHOLD -95
 
-/* 
- * Forward declarations 
- */
+
 // Many-to-one
 void bc_recv(struct broadcast_conn *conn, const linkaddr_t *sender);
 void uc_recv(struct unicast_conn *c, const linkaddr_t *from);
@@ -28,15 +27,23 @@ struct unicast_callbacks uc_cb = {.recv=uc_recv};
 // One-to-many
 void sr_send(struct unicast_conn *c, const linkaddr_t *dest);
 void sr_recv(struct unicast_conn *c, const linkaddr_t *from);
+
+// Report
 void rpt_recv(struct unicast_conn *c, const linkaddr_t *sender);
 void report_timer_cb(void* ptr); 
 //Callback structures
 struct unicast_callbacks rpt_cb = {.recv=rpt_recv};
 
+
 /*--------------------------------------------------------------------------------------*/
+
 void my_collect_open(struct my_collect_conn* conn, uint16_t channels, 
                      bool is_sink, const struct my_collect_callbacks *callbacks)
 {
+  int i;
+  linkaddr_t temp;
+  temp.u8[0] = 0x00;
+  temp.u8[0] = 0x00;
   // initialise the connector structure
   linkaddr_copy(&conn->parent, &linkaddr_null);
   conn->metric = 65535; // the max metric (means that the node is not connected yet)
@@ -53,6 +60,16 @@ void my_collect_open(struct my_collect_conn* conn, uint16_t channels,
   {
     conn->metric = 0;
     linkaddr_copy(&conn->parent, &linkaddr_node_addr); // Set the sink as father of himself 
+    // Init the routing table
+    conn->routing_table = malloc(NUMBER_NODES * sizeof(linkaddr_t*));
+    for (i = 0; i < NUMBER_NODES; i++) 
+    {
+      conn->routing_table[i] = malloc(2 * sizeof(int));
+      // Set every entry to zero
+      conn->routing_table[i][0] = temp;
+      conn->routing_table[i][1] = temp;
+    }
+    // Set the beacon timer
     ctimer_set(&conn->beacon_timer, BEACON_INTERVAL, beacon_timer_cb, conn);
     // Send immediatly a beacon for not way the first interval
     send_beacon(conn);
@@ -72,7 +89,7 @@ void send_beacon(struct my_collect_conn* conn) {
 
   packetbuf_clear();
   packetbuf_copyfrom(&beacon, sizeof(beacon));
-  printf("my_collect: sending beacon: seqn %d metric %d\n", conn->beacon_seqn, conn->metric);
+  printf("my_collect-beacon: sending beacon: seqn %d metric %d\n", conn->beacon_seqn, conn->metric);
   broadcast_send(&conn->bc);
 }
 
@@ -170,6 +187,7 @@ void report_timer_cb(void* ptr) {
 
 // Report receive callback
 void rpt_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
+  int i;
   struct report_msg rpt;
 
   // Get the pointer to the overall structure my_collect_conn from its field bc
@@ -181,14 +199,39 @@ void rpt_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     return;
   }
   memcpy(&rpt, packetbuf_dataptr(), sizeof(struct report_msg));
-  printf("my_collect: recv report from %02x:%02x", 
+  printf("my_collect: recv report from %02x:%02x\n", 
       sender->u8[0], sender->u8[1]);
  
   // Send report
   if(linkaddr_cmp(&conn->parent, &linkaddr_node_addr))
   {
-    printf("rep_recv: sink\n");
-    // TODO Build source routing table   
+    printf("rep_recv: sink source: %02x:%02x parent %02x:%02x\n", rpt.source.u8[0], rpt.source.u8[1], 
+      rpt.parent.u8[0], rpt.parent.u8[1]);
+    printf("rep_recv: sink routing table:\n");
+    // Add/update entry in the routing table
+    for(i = 0; i < NUMBER_NODES; i++)
+    {
+      if(linkaddr_cmp(&conn->routing_table[i][0], &rpt.source))
+      {
+        linkaddr_copy(&conn->routing_table[i][1], &rpt.parent);
+        break;
+      }
+      else
+      {
+        if(conn->routing_table[i][0].u8[0] == 0x00 && conn->routing_table[i][0].u8[1] == 0x00)
+        {
+          linkaddr_copy(&conn->routing_table[i][0], &rpt.source);
+          linkaddr_copy(&conn->routing_table[i][1], &rpt.parent);
+          break;
+        } 
+      }
+
+      printf("routing table: %02x:%02x - %02x:%02x\n", conn->routing_table[i][0].u8[0], conn->routing_table[i][0].u8[1], 
+        conn->routing_table[i][1].u8[0], conn->routing_table[i][1].u8[1]);
+    }
+
+    printf("routing table: %02x:%02x - %02x:%02x\n", conn->routing_table[i][0].u8[0], conn->routing_table[i][0].u8[1], 
+        conn->routing_table[i][1].u8[0], conn->routing_table[i][1].u8[1]);
   }
   else
   {
@@ -197,6 +240,19 @@ void rpt_recv(struct unicast_conn *uc_conn, const linkaddr_t *sender) {
     packetbuf_copyfrom(&rpt, sizeof(rpt));
     unicast_send(&conn->rpt, &conn->parent);
   }
+}
+
+
+/* Handling packets forwarding --------------------------------------------------------*/
+
+void sr_send(struct unicast_conn *c, const linkaddr_t *dest)
+{
+
+}
+
+void sr_recv(struct unicast_conn *c, const linkaddr_t *from)
+{
+
 }
 
 

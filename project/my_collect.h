@@ -19,6 +19,7 @@ struct my_collect_conn {
   struct unicast_conn rpt;
   const struct my_collect_callbacks* callbacks;
   linkaddr_t parent;
+  linkaddr_t** routing_table;
   struct ctimer beacon_timer;
   struct ctimer report_timer;
   uint16_t metric;
